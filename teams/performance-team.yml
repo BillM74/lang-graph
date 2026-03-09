@@ -1,0 +1,290 @@
+# Performance Optimization Team
+#
+# Diagnose and fix Snowflake query performance and cost issues
+
+name: performance-team
+description: Diagnose and optimize Snowflake query performance and costs
+
+coordinator: performance-optimizer
+
+members:
+  - role: diagnosis
+    agent: performance-optimizer
+    phase: 1
+    required: true
+    description: Diagnoses performance bottleneck and proposes optimization strategy
+
+  - role: implementation
+    agent: dbt-engineer
+    phase: 2
+    required: true
+    description: Implements optimization changes to models or queries
+
+  - role: validation
+    agent: performance-optimizer
+    phase: 3
+    required: true
+    description: A/B tests before/after performance and validates improvement
+
+  - role: review
+    agent: dbt-code-reviewer
+    phase: 3
+    required: true
+    description: Ensures optimizations don't break conventions or introduce issues
+
+  - role: learning
+    agent: retrospective-analyst
+    phase: 4
+    required: true  # Always runs at end of every workflow
+    description: Captures learnings, patterns, and process improvements
+
+shared_workspace: .claude/teams/performance-team/
+
+success_criteria:
+  - Performance bottleneck identified (spillage, full scan, etc.)
+  - Optimization implemented (clustering, filters, incremental, etc.)
+  - Performance improved (> 30% runtime reduction OR > 30% cost reduction)
+  - A/B comparison documented (before/after metrics)
+  - No regressions (tests still pass, results unchanged)
+  - Changes reviewed and approved
+
+workflow:
+  phase_1_diagnosis:
+    sequence:
+      - step: 1
+        agent: performance-optimizer
+        task: Diagnose performance issue
+        inputs:
+          - Query or model exhibiting poor performance
+          - Symptom (slow query, high cost, spillage)
+        outputs:
+          - Diagnostic report
+          - Bottleneck identified (full scan, spillage, bad joins, etc.)
+          - Optimization strategy recommended
+          - Expected impact estimate
+        gates:
+          - Root cause identified
+          - Optimization approach selected
+          - Expected improvement quantified
+
+        diagnostic_scripts:
+          - scripts/query-profile-analyzer.sql
+          - scripts/clustering-health-check.sql
+          - scripts/warehouse-spillage-check.sql
+          - scripts/cost-breakdown-query.sql
+
+  phase_2_implementation:
+    sequence:
+      - step: 2
+        agent: dbt-engineer
+        task: Implement optimization changes
+        inputs:
+          - Optimization strategy from diagnosis
+        outputs:
+          - Modified SQL models or config
+          - Implementation notes
+        gates:
+          - Model still compiles
+          - Model still runs successfully
+          - Results unchanged (data quality maintained)
+
+        common_optimizations:
+          - Add clustering keys (cluster_by config)
+          - Convert to incremental materialization
+          - Add date filters to reduce scan
+          - Refactor joins (filter before joining)
+          - Add explicit column selection (remove SELECT *)
+          - Increase warehouse size if spillage detected
+
+  phase_3_validation:
+    parallel: true
+    tasks:
+      - agent: performance-optimizer
+        task: A/B test and validate improvement
+        outputs:
+          - Before/after comparison report
+          - Performance metrics (runtime, bytes scanned, credits)
+        gates:
+          - Performance improved by > 30% OR
+          - Cost reduced by > 30%
+          - No data quality regressions
+
+        ab_test_protocol:
+          before:
+            - Record baseline runtime
+            - Record bytes scanned
+            - Record credits used
+            - Screenshot query profile
+
+          after:
+            - Run optimized version
+            - Compare metrics to baseline
+            - Verify results match baseline
+            - Document improvement
+
+      - agent: dbt-code-reviewer
+        task: Review optimization changes
+        outputs:
+          - Code review of optimization
+        gates:
+          - Changes follow best practices
+          - No anti-patterns introduced
+          - Documentation updated
+
+  phase_4_documentation:
+    sequence:
+      - step: 6
+        agent: performance-optimizer
+        task: Document optimization in memory
+        outputs:
+          - Baseline stored in Letta with tag "baseline"
+          - Pattern stored in Letta with tags ["pattern", "optimization"]
+        gates:
+          - A/B comparison stored
+          - Learning documented
+
+  phase_5_learning:
+    sequence:
+      - step: final
+        agent: retrospective-analyst
+        task: Capture learnings and patterns from optimization workflow
+        outputs:
+          - Reflection document
+          - New or updated patterns
+          - Process improvement proposals (if recurring issues found)
+        gates:
+          - Learnings stored in Letta memory
+
+handoff_protocol:
+  format: |
+    ## HANDOFF TO [NEXT_AGENT]
+
+    **Query/Model:** [name]
+    **Issue:** [slow query | high cost | spillage | etc.]
+    **Bottleneck:** [full table scan | missing clustering | etc.]
+    **Optimization:** [strategy to apply]
+    **Expected Impact:** [X% faster | Y% cost reduction]
+    **Context:** [What was completed]
+    **Next Steps:** [What needs to happen]
+    **Success Criteria:** [How to verify]
+    **Status:** REQUIRED|OPTIONAL|COMPLETE
+
+  example: |
+    ## HANDOFF TO dbt-engineer
+
+    **Query/Model:** fct_orders (400M rows)
+    **Issue:** Query takes 5 minutes, scans 100GB
+    **Bottleneck:** Full table scan on date range queries
+    **Optimization:** Add clustering on (order_date, customer_segment)
+    **Expected Impact:** 3-5x faster (target: < 1 minute)
+    **Context:** Diagnosed using query profile, confirmed no clustering exists
+    **Next Steps:**
+      - Add cluster_by=['order_date', 'customer_segment'] to config
+      - Run dbt run --full-refresh to apply clustering
+      - Verify clustering with SHOW TABLES
+    **Success Criteria:**
+      - Model builds successfully
+      - Query runtime < 90 seconds
+      - Bytes scanned < 30GB (70% reduction)
+    **Status:** REQUIRED
+
+coordination_rules:
+  - Diagnosis MUST complete before implementation
+  - Implementation MUST complete before validation
+  - Both validation tasks (A/B test + review) happen in parallel
+  - Retrospective ALWAYS runs at the end — no exceptions
+  - If validation fails, return to diagnosis or implementation
+  - Document all optimizations for future reference
+
+iterative_refinement:
+  - If optimization doesn't meet success criteria (< 30% improvement):
+    - Try alternative optimization approach
+    - Combine multiple optimizations
+    - Escalate if no viable optimization exists
+  - If optimization breaks functionality:
+    - Revert changes
+    - Diagnose issue
+    - Apply corrected optimization
+
+decision_tree:
+  symptom_slow_query:
+    - Full table scan → Add clustering or filters
+    - Large bytes scanned → Use explicit columns, add date filters
+    - Spillage to disk → Increase warehouse size
+    - Slow joins → Filter before joining
+    - Complex window functions → Add PARTITION BY, use QUALIFY
+
+  symptom_dbt_build_slow:
+    - Large tables as views → Change to table/incremental
+    - Full refresh on large tables → Use incremental strategy
+    - Too few threads → Increase dbt threads (8-12 for Medium warehouse)
+    - Models run sequentially → Check dependencies, enable parallelism
+
+  symptom_high_costs:
+    - Idle warehouses → Enable auto-suspend (60s)
+    - Oversized warehouses → Right-size (see warehouse-sizing guide)
+    - Storage costs → Use transient tables, minimize Time Travel
+    - Expensive queries → Optimize query patterns
+
+ab_comparison_template: |
+  ## A/B Performance Comparison - [Model/Query Name]
+
+  **Date:** {date}
+  **Optimization:** {optimization_description}
+
+  ### Before
+  - Runtime: {before_runtime} seconds
+  - Bytes Scanned: {before_bytes_gb} GB
+  - Credits Used: {before_credits}
+  - Spillage: {yes|no}
+  - Partition Pruning: {before_partitions_scanned}/{before_partitions_total} ({percentage}%)
+
+  ### After
+  - Runtime: {after_runtime} seconds
+  - Bytes Scanned: {after_bytes_gb} GB
+  - Credits Used: {after_credits}
+  - Spillage: {yes|no}
+  - Partition Pruning: {after_partitions_scanned}/{after_partitions_total} ({percentage}%)
+
+  ### Improvement
+  - Runtime: {improvement_pct}% faster
+  - Bytes Scanned: {reduction_pct}% reduction
+  - Credits: {cost_reduction_pct}% cost reduction
+
+  ### Verification
+  - [ ] Results match baseline (data quality maintained)
+  - [ ] Tests still pass
+  - [ ] No new errors or warnings
+
+  **Recommendation:** {DEPLOY | REVERT | ITERATE}
+
+examples:
+  - name: "Optimize slow fct_orders query"
+    flow: |
+      1. performance-optimizer: Diagnose → Full table scan on date queries
+      2. performance-optimizer: Recommend → Add clustering on order_date
+      3. dbt-engineer: Implement clustering config
+      4. performance-optimizer: A/B test → 5min → 1min (5x faster) ✓
+      5. dbt-code-reviewer: Review → Approved ✓
+      6. performance-optimizer: Document → Stored in Letta baselines
+      7. retrospective-analyst: Capture learnings
+
+  - name: "Reduce Snowflake costs"
+    flow: |
+      1. performance-optimizer: Diagnose → Warehouse always running
+      2. performance-optimizer: Recommend → Set auto-suspend to 60s
+      3. dbt-engineer: Update warehouse config
+      4. performance-optimizer: Monitor → 60% cost reduction over 1 week ✓
+      5. performance-optimizer: Document → Pattern stored
+      6. retrospective-analyst: Capture learnings
+
+  - name: "Optimize failed (revert)"
+    flow: |
+      1. performance-optimizer: Diagnose → Large bytes scanned
+      2. performance-optimizer: Recommend → Add aggressive filters
+      3. dbt-engineer: Implement filters
+      4. performance-optimizer: A/B test → Results don't match ❌
+      5. dbt-engineer: Revert changes
+      6. performance-optimizer: Re-diagnose → Try clustering instead
+      7. dbt-engineer: Add clustering
+      8. performance-optimizer: A/B test → 3x faster, results match ✓

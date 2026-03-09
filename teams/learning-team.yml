@@ -1,0 +1,314 @@
+# Learning & Improvement Team
+#
+# Continuous improvement through retrospective analysis and pattern extraction
+
+name: learning-team
+description: Examines workflows to extract patterns and propose improvements
+
+coordinator: retrospective-analyst
+
+members:
+  - role: analysis
+    agent: retrospective-analyst
+    phase: 1
+    required: true
+    description: Examines completed workflows to identify successes and failures
+
+  - role: pattern_extraction
+    agent: retrospective-analyst
+    phase: 2
+    required: true
+    description: Extracts reusable patterns from successful approaches
+
+  - role: process_improvement
+    agent: retrospective-analyst
+    phase: 3
+    required: conditional  # Only when 2+ occurrences of same issue
+    description: Proposes process improvements for recurring problems
+
+shared_workspace: Letta archival memory (via memory_store/memory_search MCP tools)
+
+success_criteria:
+  - Workflow analysis complete (successes and failures identified)
+  - Reflections recorded in Letta memory with tag "reflection"
+  - Patterns extracted (if novel pattern discovered)
+  - Process improvements proposed (if 2+ occurrences)
+  - Lessons learned documented
+
+workflow:
+  phase_1_analysis:
+    sequence:
+      - step: 1
+        agent: retrospective-analyst
+        task: Gather and analyze session artifacts
+        inputs:
+          - Session transcript
+          - Tool use history
+          - Agent invocations
+          - Test results
+          - Code review outcomes
+        outputs:
+          - Analysis of what worked well
+          - Analysis of what didn't work
+          - Timeline of key events
+        gates:
+          - All significant events identified
+          - Successes and failures categorized
+          - Root causes determined
+
+        analysis_dimensions:
+          successes:
+            - What worked well?
+            - Which agents performed effectively?
+            - Which skills provided value?
+            - What patterns led to success?
+
+          failures:
+            - What didn't work?
+            - Where did agents struggle?
+            - What caused blockers or delays?
+            - What knowledge gaps exist?
+
+          discoveries:
+            - What novel patterns emerged?
+            - What edge cases were encountered?
+            - What assumptions were violated?
+            - What new learnings occurred?
+
+  phase_2_pattern_extraction:
+    sequence:
+      - step: 2
+        agent: retrospective-analyst
+        task: Extract reusable patterns
+        inputs:
+          - Analysis from phase 1
+          - Existing patterns from Letta memory (search tag "pattern")
+        outputs:
+          - New patterns (if novel)
+          - Updated patterns (if refinement needed)
+          - Pattern confidence scores
+        gates:
+          - Pattern is generalizable (not one-off)
+          - Pattern validated across 2+ instances
+          - Pattern documented with clear conditions
+
+        pattern_types:
+          common_failures:
+            storage: Letta memory_store with tags ["pattern", "test-failure"]
+            format:
+              test_type: unique|not_null|relationships|etc
+              root_cause: Description of why it failed
+              fix_applied: How it was resolved
+              prevention_tip: How to avoid in future
+
+          successful_optimizations:
+            storage: Letta memory_store with tags ["pattern", "optimization"]
+            format:
+              issue: Performance problem description
+              optimization: What was applied
+              impact: Measured improvement (X% faster, Y% cost reduction)
+              applicable_when: Conditions for reuse
+
+          successful_builds:
+            storage: Letta memory_store with tags ["episode", "build-success"]
+            format:
+              model: Model name
+              strategy: Materialization/incremental strategy
+              tests_added: Test types applied
+              build_time: Time to build
+
+          routing_decisions:
+            storage: Letta memory_store with tags ["routing"]
+            format:
+              user_request: Original request phrasing
+              agent_invoked: Which agent was delegated to
+              outcome: Success|Partial|Failed
+
+  phase_3_process_improvement:
+    condition: recurring_issue_detected
+    sequence:
+      - step: 3
+        agent: retrospective-analyst
+        task: Propose process improvements
+        inputs:
+          - 2+ occurrences of same issue type
+          - Pattern analysis from phase 2
+        outputs:
+          - Process improvement proposal
+          - Implementation plan
+          - Expected impact
+        gates:
+          - Issue recurs 2+ times (not a one-off)
+          - Proposal addresses root cause
+          - Implementation is feasible
+          - Proposal does NOT modify agent/skill files directly (only proposes)
+
+        proposal_format: |
+          # Process Improvement Proposal
+
+          **Date:** {date}
+          **Issue:** {recurring_problem_description}
+          **Frequency:** {N} occurrences in last {M} sessions
+          **Impact:** {High|Medium|Low}
+
+          ## Root Cause
+          {Analysis of why this keeps happening}
+
+          ## Proposed Solution
+          {What to change in process, agent, or skill}
+
+          ## Implementation Plan
+          1. {Step 1}
+          2. {Step 2}
+          3. {Step 3}
+
+          ## Expected Impact
+          - {Metric 1}: {Expected improvement}
+          - {Metric 2}: {Expected improvement}
+
+          ## Approval Required From
+          - [ ] User review
+          - [ ] Testing validation
+
+        proposal_location: Letta memory_store with tags ["proposal", "status:proposed"]
+
+handoff_protocol:
+  format: |
+    ## RETROSPECTIVE COMPLETE
+
+    **Session:** [session_id or date]
+    **Workflow Type:** [feature-development | metrics | performance | etc.]
+    **Outcome:** Success | Partial | Failed
+    **Key Findings:**
+      - Successes: [What worked]
+      - Failures: [What didn't work]
+      - Patterns: [Novel or updated patterns]
+      - Proposals: [Process improvements if any]
+    **Status:** COMPLETE
+
+invocation_triggers:
+  automatic:
+    - After complex multi-agent workflow completes
+    - SessionStop hook detects significant work
+    - 3+ agents invoked in single session
+
+  manual:
+    - User says "run a retrospective"
+    - User asks "what did we learn?"
+    - User requests "lessons learned"
+
+  proactive:
+    - Same test failure occurs 3+ times
+    - Same type of code review issue occurs 3+ times
+    - Performance optimization needed 3+ times
+
+coordination_rules:
+  - retrospective-analyst works independently (no coordination needed)
+  - Writes only to Letta memory via memory_store
+  - Does NOT modify agent or skill files
+  - Proposes changes but does NOT implement them
+  - User approves process improvement proposals before implementation
+
+reflection_types:
+  implementation:
+    storage: Letta memory_store with tags ["reflection", "implementation"]
+    captures: Model implementation outcomes, test cycles, blockers
+
+  review:
+    storage: Letta memory_store with tags ["reflection", "review"]
+    captures: Code review scores, common issues, improvement trends
+
+  optimization:
+    storage: Letta memory_store with tags ["reflection", "optimization"]
+    captures: Performance improvements, A/B comparisons, cost savings
+
+  architecture:
+    storage: Letta memory_store with tags ["reflection", "architecture"]
+    captures: Design decisions, schema choices, trade-offs
+
+examples:
+  - name: "Extract test failure pattern"
+    flow: |
+      1. retrospective-analyst: Analyze last 5 sessions
+      2. retrospective-analyst: Find 3 occurrences of unique test failing due to duplicates
+      3. retrospective-analyst: Extract pattern:
+         - root_cause: "Missing deduplication in staging layer"
+         - fix_applied: "Added QUALIFY ROW_NUMBER() ... = 1"
+         - prevention_tip: "Add deduplication to all staging models with potential duplicates"
+      4. retrospective-analyst: Store in Letta via memory_store with tags ["pattern", "test-failure"]
+      5. Complete: Pattern available for future reference
+
+  - name: "Propose workflow improvement"
+    flow: |
+      1. retrospective-analyst: Analyze workflows
+      2. retrospective-analyst: Find 3 instances where impact-analyzer was skipped
+      3. retrospective-analyst: Find 2 of those resulted in broken filters downstream
+      4. retrospective-analyst: Propose process improvement:
+         "Add mandatory impact-analyzer gate before any seed/dimension modifications"
+      5. retrospective-analyst: Store proposal in Letta with tags ["proposal", "status:proposed"]
+      6. User reviews proposal
+      7. User approves → Update CLAUDE.md with new rule
+      8. Complete: Process improved
+
+  - name: "Document successful approach"
+    flow: |
+      1. retrospective-analyst: Analyze feature development workflow
+      2. retrospective-analyst: Find workflow succeeded smoothly
+      3. retrospective-analyst: Extract successful patterns:
+         - TDD approach (tests first) led to faster implementation
+         - Early impact analysis prevented breaking changes
+         - Parallel code review + performance optimization saved time
+      4. retrospective-analyst: Store reflection
+      5. Complete: Success pattern documented
+
+  - name: "No action needed"
+    flow: |
+      1. retrospective-analyst: Analyze simple implementation
+      2. retrospective-analyst: No failures, no novel patterns
+      3. retrospective-analyst: Record brief reflection only
+      4. Complete: Session documented, no changes needed
+
+learning_loop:
+  continuous:
+    - Every complex workflow triggers retrospective
+    - Patterns accumulate in Letta archival memory
+    - Agents reference patterns during work (via session-start hook)
+    - Process improvements proposed when patterns recur
+    - User approves improvements → Applied to workflow
+
+  metrics:
+    - Pattern count growth over time
+    - Process improvement proposals submitted
+    - Process improvements approved and implemented
+    - Reduction in recurring issues
+    - Increase in first-time success rate
+
+meta_learning:
+  - retrospective-analyst also reflects on its own performance
+  - Are retrospectives providing value?
+  - Are proposed improvements being adopted?
+  - Are patterns being referenced by other agents?
+  - Self-improvement proposals to enhance retrospective process
+
+integration_with_memory_system:
+  read_from:
+    - memory_search with tags ["episode"] (significant events from past sessions)
+    - memory_search with tags ["pattern"] (existing patterns to check against)
+    - memory_search with tags ["reflection"] (past retrospectives)
+
+  write_to:
+    - memory_store with tags ["reflection", "{type}"] (new reflection after analysis)
+    - memory_store with tags ["pattern"] (new or updated patterns)
+    - memory_store with tags ["proposal", "status:proposed"] (process improvement proposals)
+
+  triggered_by:
+    - session-stop.py hook (automatic invocation after significant work)
+    - User explicit request ("run retrospective")
+    - project-manager after completing major feature
+
+success_indicators:
+  - Fewer recurring issues over time
+  - Patterns being actively referenced by agents
+  - Process improvements reducing failures
+  - Team velocity increasing
+  - Knowledge capture and reuse improving

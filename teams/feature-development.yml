@@ -1,0 +1,209 @@
+# Feature Development Team
+#
+# End-to-end feature implementation from design through deployment
+
+name: feature-development
+description: End-to-end feature implementation team for new analytics capabilities
+
+coordinator: project-manager
+
+members:
+  - role: design
+    agent: data-architect
+    phase: 1
+    required: true
+    description: Designs SOMA-compliant data model architecture
+
+  - role: safety
+    agent: impact-analyzer
+    phase: 2
+    required: true  # Always runs before implementation
+    description: Analyzes downstream impact of proposed changes
+
+  - role: implementation
+    agent: dbt-engineer
+    phase: 3
+    required: true
+    description: Implements models, tests, and documentation
+
+  - role: quality
+    agent: dbt-code-reviewer
+    phase: 4
+    required: true
+    description: Reviews code quality, testing, and compliance
+
+  - role: metrics
+    agent: metrics-analyst
+    phase: 1
+    required: conditional  # When feature introduces or modifies metrics
+    description: Defines metric specs (formula, dimensions, classification) before implementation
+
+  - role: performance
+    agent: performance-optimizer
+    phase: 4
+    required: conditional  # Only if performance concerns
+    description: Optimizes query performance and costs
+
+  - role: learning
+    agent: retrospective-analyst
+    phase: 5
+    required: true  # Always runs at end of every workflow
+    description: Captures learnings, patterns, and process improvements
+
+shared_workspace: .claude/teams/feature-dev/
+
+success_criteria:
+  - Feature builds successfully (dbt run passes)
+  - All tests pass (dbt test passes)
+  - Code review approved (🟢 from dbt-code-reviewer)
+  - No downstream breaks (impact analysis confirms SAFE)
+  - Documentation complete (grain, PK, description)
+  - Performance acceptable (< 5min runtime for standard queries)
+
+workflow:
+  phase_1_design:
+    sequence:
+      - step: 1
+        agent: data-architect
+        task: Design data model and SOMA structure
+        outputs:
+          - Architecture decision document
+          - Model design with grain and keys
+        gates:
+          - Design is SOMA-compliant
+          - Grain clearly defined
+          - Foreign keys identified
+
+      - step: 1b
+        agent: metrics-analyst
+        task: Define metric specs (formula, dimensions, classification)
+        condition: feature_introduces_or_modifies_metrics
+        outputs:
+          - Metric definition (name, type, formula, dimensions)
+          - Quality score (must pass 75/100)
+        gates:
+          - Metric classified as atomic or compound
+          - Formula specified with components
+          - Quality score ≥ 75/100
+
+  phase_2_impact_analysis:
+    sequence:
+      - step: 2
+        agent: impact-analyzer
+        task: Analyze downstream impact of proposed changes
+        outputs:
+          - Impact assessment report (SAFE/CAUTION/DANGEROUS)
+        gates:
+          - Classification is SAFE or user approves with mitigation plan
+
+  phase_3_implementation:
+    sequence:
+      - step: 3
+        agent: dbt-engineer
+        task: Implement models, tests, and documentation
+        inputs:
+          - Architecture decision from phase 1
+        outputs:
+          - SQL models (*.sql)
+          - Schema definitions (schema.yml)
+          - Tests
+        gates:
+          - dbt compile succeeds
+          - dbt run succeeds
+          - dbt test passes
+          - All 6 self-verification gates pass
+
+  phase_4_validation:
+    parallel: true  # These can run simultaneously
+    tasks:
+      - agent: dbt-code-reviewer
+        task: Review code quality and standards
+        outputs:
+          - Code review report with scoring
+        gates:
+          - Review score is 🟢 (approved)
+
+      - agent: performance-optimizer
+        task: Analyze and optimize performance
+        condition: query_runtime_exceeds_threshold
+        outputs:
+          - Performance analysis
+          - Optimization recommendations
+        gates:
+          - Query runtime acceptable or optimized
+
+  phase_5_learning:
+    sequence:
+      - step: final
+        agent: retrospective-analyst
+        task: Capture learnings and patterns from workflow
+        outputs:
+          - Reflection document
+          - New or updated patterns
+          - Process improvement proposals (if recurring issues found)
+        gates:
+          - Learnings stored in Letta memory
+          - Patterns extracted (if novel)
+          - Proposals created (if 2+ occurrences of same issue)
+
+handoff_protocol:
+  format: |
+    ## HANDOFF TO [NEXT_AGENT]
+
+    **Context:** [What was completed in this phase]
+    **Artifacts:**
+      - [Files created/modified]
+      - [Key decisions made]
+    **Next Steps:** [What needs to happen next]
+    **Success Criteria:** [How to verify completion]
+    **Status:** REQUIRED|OPTIONAL|COMPLETE
+
+  example: |
+    ## HANDOFF TO dbt-engineer
+
+    **Context:** Designed customer lifetime value model (fct_customer_ltv)
+    **Artifacts:**
+      - Architecture decision: .claude/teams/feature-dev/decisions.md
+      - Grain: One row per customer
+      - Primary key: customer_id
+      - Upstream: fct_orders, dim_customers
+    **Next Steps:**
+      - Implement fct_customer_ltv.sql
+      - Add schema.yml with tests
+      - Document grain and PK
+    **Success Criteria:**
+      - Model builds successfully
+      - All tests pass (unique, not_null on PK, relationships to dims)
+      - ltv calculation matches business definition
+    **Status:** REQUIRED
+
+coordination_rules:
+  - Phases must complete in sequence (1 → 2 → 3 → 4 → 5)
+  - Impact analysis (phase 2) MUST complete before implementation (phase 3) begins
+  - Retrospective (phase 5) ALWAYS runs at the end — no exceptions
+  - Within a phase, agents run in step order unless parallel: true
+  - Gates must pass before proceeding to next step
+  - If a gate fails, loop back to fix issue before continuing
+  - Coordinator (project-manager) tracks progress and enforces gates
+
+examples:
+  - name: "Add subscription churn tracking"
+    flow: |
+      1. project-manager: Creates feature PRD
+      2. data-architect: Designs act_subscription_churned activity
+      3. impact-analyzer: Analyzes downstream impact (SAFE)
+      4. dbt-engineer: Implements activity model + tests
+      5. dbt-code-reviewer: Reviews (🟢 approved)
+      6. retrospective-analyst: Captures learnings
+
+  - name: "Implement revenue forecasting model"
+    flow: |
+      1. project-manager: Breaks down into tasks
+      2. data-architect: Designs fct_revenue_forecast
+      3. impact-analyzer: Checks impact on existing revenue reports (SAFE)
+      4. dbt-engineer: Implements model with 7-day and 30-day forecasts
+      5. dbt-code-reviewer: Reviews (🟡 suggestions)
+      6. dbt-engineer: Applies suggestions
+      7. dbt-code-reviewer: Re-reviews (🟢 approved)
+      8. performance-optimizer: Optimizes aggregations (query 5x faster)
+      9. retrospective-analyst: Captures learnings and patterns

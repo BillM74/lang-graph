@@ -1,0 +1,238 @@
+# Metrics Definition Team
+#
+# Define, implement, and validate new metrics following SOMA methodology
+
+name: metrics-team
+description: Define, implement, and validate SOMA-compliant metrics
+
+coordinator: metrics-analyst
+
+members:
+  - role: definition
+    agent: metrics-analyst
+    phase: 1
+    required: true
+    description: Defines metric following 7-step workflow with validation gates
+
+  - role: design
+    agent: data-architect
+    phase: 2
+    required: conditional  # Only if new data model needed
+    description: Designs supporting data models if metric requires new structure
+
+  - role: safety
+    agent: impact-analyzer
+    phase: 3
+    required: true  # Always runs before implementation
+    description: Analyzes downstream impact before metric implementation
+
+  - role: implementation
+    agent: dbt-engineer
+    phase: 4
+    required: true
+    description: Implements metric calculation in nets or semantic layer
+
+  - role: validation
+    agent: metrics-analyst
+    phase: 5
+    required: true
+    description: Validates calculation against business definition and reconciles
+
+  - role: learning
+    agent: retrospective-analyst
+    phase: 6
+    required: true  # Always runs at end of every workflow
+    description: Captures learnings, patterns, and process improvements
+
+shared_workspace: .claude/teams/metrics-team/
+
+success_criteria:
+  - Metric definition complete (all 7 workflow gates passed)
+  - Metric implemented (in net or semantic layer)
+  - Calculation validated (matches business definition)
+  - Tests pass (non-negative, reasonable range)
+  - Documentation complete (formula, caveats, dimensions)
+  - Reconciliation successful (matches external source if applicable)
+
+workflow:
+  phase_1_definition:
+    sequence:
+      - step: 1
+        agent: metrics-analyst
+        task: Define metric following metric-definition workflow
+        outputs:
+          - Metric definition YAML (definitions/metrics/<category>/<metric>.yml)
+          - Classification (atomic vs compound)
+          - Component metrics identified
+        gates:
+          - ✋ Uniqueness Gate: Metric doesn't already exist
+          - ✋ Classification Gate: Type and category assigned
+          - ✋ Definition Gate: All required fields completed
+          - ✋ Validation Gate: All checklist items pass
+          - ✋ Dependency Gate: All dependencies identified
+
+  phase_2_design:
+    condition: requires_new_data_model
+    sequence:
+      - step: 2
+        agent: data-architect
+        task: Design supporting data model for metric
+        outputs:
+          - Net model design or semantic layer definition
+          - Grain and aggregation strategy
+        gates:
+          - Design supports metric calculation
+          - SOMA-compliant structure
+          - Performance considerations addressed
+
+  phase_3_impact_analysis:
+    sequence:
+      - step: 3
+        agent: impact-analyzer
+        task: Analyze downstream impact of metric changes
+        outputs:
+          - Impact assessment report (SAFE/CAUTION/DANGEROUS)
+        gates:
+          - Classification is SAFE or user approves with mitigation plan
+
+  phase_4_implementation:
+    sequence:
+      - step: 4
+        agent: dbt-engineer
+        task: Implement metric calculation
+        outputs:
+          - Net model (net_<metric_set>.sql) OR
+          - Semantic layer metric definition
+          - Tests for metric
+        gates:
+          - ✋ Implementation Gate: Metric builds successfully
+          - ✋ Testing Gate: All tests pass
+          - Formula uses NULLIF for safe division
+          - Documentation includes caveats
+
+  phase_5_validation:
+    sequence:
+      - step: 5
+        agent: metrics-analyst
+        task: Validate metric calculation and reconcile
+        outputs:
+          - Validation report
+          - Reconciliation results (if external source exists)
+        gates:
+          - Calculation matches business definition
+          - Numbers reconcile with external source (if applicable)
+          - Edge cases documented
+
+handoff_protocol:
+  format: |
+    ## HANDOFF TO [NEXT_AGENT]
+
+    **Metric Name:** [metric_name]
+    **Type:** Atomic | Compound
+    **Category:** Revenue | Growth | Efficiency | etc.
+    **Formula:** [calculation formula]
+    **Component Metrics:** [for compound metrics]
+    **Context:** [What was completed]
+    **Next Steps:** [What needs to happen]
+    **Success Criteria:** [How to verify]
+    **Status:** REQUIRED|OPTIONAL|COMPLETE
+
+  example: |
+    ## HANDOFF TO dbt-engineer
+
+    **Metric Name:** customer_acquisition_cost (cac)
+    **Type:** Compound
+    **Category:** Efficiency
+    **Formula:** sales_marketing_spend / NULLIF(new_customers, 0)
+    **Component Metrics:**
+      - sales_marketing_spend (atomic)
+      - new_customers (atomic)
+    **Context:** Metric defined with all 7 gates passed
+    **Next Steps:**
+      - Implement in net_customer_acquisition model
+      - Add to date_month grain with segment/channel dimensions
+      - Include tests: cac >= 0, not null
+    **Success Criteria:**
+      - Model builds successfully
+      - Tests pass
+      - CAC values are reasonable ($100-$5000 range)
+    **Status:** REQUIRED
+
+coordination_rules:
+  - Definition phase MUST complete before implementation
+  - Impact analysis MUST complete before implementation begins
+  - Implementation MUST complete before validation
+  - Retrospective ALWAYS runs at the end — no exceptions
+  - If validation fails, loop back to implementation or definition
+  - metrics-analyst coordinates entire workflow
+  - All workflow gates must pass in sequence
+
+iterative_refinement:
+  - If validation reveals issues, return to appropriate phase:
+    - Formula error → Back to Phase 1 (Definition)
+    - Implementation bug → Back to Phase 3 (Implementation)
+    - Data quality issue → Escalate to data source owner
+  - Document learnings in Letta via memory_store with tags ["pattern", "metric"]
+
+examples:
+  - name: "Define new MRR metric"
+    flow: |
+      1. metrics-analyst: Define MRR as atomic metric (sum of subscription amounts)
+      2. impact-analyzer: Analyze downstream impact (SAFE)
+      3. dbt-engineer: Implement in net_revenue_metrics (date_month grain)
+      4. metrics-analyst: Validate against Salesforce revenue report (matches ✓)
+      5. retrospective-analyst: Capture learnings
+
+  - name: "Define compound CAC metric"
+    flow: |
+      1. metrics-analyst: Define CAC as compound (spend / customers)
+      2. metrics-analyst: Verify components exist (spend ✓, new_customers ✓)
+      3. impact-analyzer: Analyze downstream impact (SAFE)
+      4. dbt-engineer: Implement in net_customer_acquisition
+      5. metrics-analyst: Validate calculation (CAC $450 - reasonable ✓)
+      6. metrics-analyst: Reconcile with finance report (5% variance - acceptable)
+      7. retrospective-analyst: Capture learnings
+
+  - name: "Define NRR with validation failure"
+    flow: |
+      1. metrics-analyst: Define NRR as compound metric
+      2. impact-analyzer: Analyze downstream impact (SAFE)
+      3. dbt-engineer: Implement calculation
+      4. metrics-analyst: Validate - NRR = 120% (expected 102%)
+      5. metrics-analyst: Investigation → churn component missing
+      6. metrics-analyst: Update definition to include churn
+      7. dbt-engineer: Re-implement with correct formula
+      8. metrics-analyst: Validate - NRR = 102% (matches ✓)
+      9. retrospective-analyst: Capture learnings
+
+metric_types_handled:
+  atomic:
+    - Direct measurements from data
+    - Examples: new_customers, total_revenue, active_subscriptions
+    - Implementation: Usually simple aggregation in net
+
+  compound:
+    - Derived from other metrics
+    - Examples: CAC, NRR, LTV/CAC ratio
+    - Implementation: Formula references other metrics with NULLIF
+
+  time_series:
+    - Period-over-period calculations
+    - Examples: MRR growth rate, customer retention rate
+    - Implementation: LAG window functions for prior period
+
+validation_methods:
+  internal:
+    - Compare to manual calculation
+    - Check edge cases (zeros, nulls)
+    - Validate across dimensions
+
+  external:
+    - Reconcile with external system (Salesforce, Stripe)
+    - Compare to finance reports
+    - Verify against business intelligence tools (Power BI)
+
+  business:
+    - Review with metric owner
+    - Confirm interpretation matches expectation
+    - Validate assumptions and caveats
